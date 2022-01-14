@@ -1,5 +1,11 @@
-const getCanvas = () => document.getElementById("my-canvas");
-const get2DContext = () => getCanvas().getContext("2d");
+import React, { useState } from "react";
+import { render } from "react-dom";
+import { Stage, Layer, Shape } from 'react-konva';
+import Button from 'react-bootstrap/Button';
+import 'bootstrap/dist/css/bootstrap.min.css';
+
+import { InternalState } from "../pkg/index.js";
+
 const cellSize = 50;
 const [colorRed, colorGreen, colorBlue] = [
   [255, 0, 0],
@@ -7,107 +13,116 @@ const [colorRed, colorGreen, colorBlue] = [
   [0, 0, 255],
 ];
 
-const draw = (state) => {
-  const context = get2DContext();
-  const image = state.internal.image();
+function App() {
+  const [internalState, setInternalState] = useState(InternalState.new(10, 10));
+  const [currentColor, setCurrentColor] = useState(colorGreen);
+  const [dragging, setDragging] = useState(false);
 
-  const width = image.width;
-  const height = image.height;
+  const sceneFunc = (context, shape) => {
+    const image = internalState.image();
+    const width = image.width;
+    const height = image.height;
 
-  const cells = image.cells();
+    const cells = image.cells();
 
-  // we flat the rgb tuple into a fat array, this steps build the original colors
-  for (let x = 0; x < width; x++) {
-    for (let y = 0; y < height; y++) {
-      const index = (y * width + x) * 3;
-      const color = `rgb(${cells[index + 0]}, ${cells[index + 1]}, ${
-        cells[index + 2]
-      })`;
-      context.fillStyle = color;
-      context.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+    // we flat the rgb tuple into a fat array, this steps build the original colors
+    for (let x = 0; x < width; x++) {
+      for (let y = 0; y < height; y++) {
+        const index = (y * width + x) * 3;
+        const color = `rgb(${cells[index + 0]}, ${cells[index + 1]}, ${
+          cells[index + 2]
+        })`;
+        context.fillStyle = color;
+        context.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+      }
     }
+
+    for (let x = 0; x <= width; x++) {
+      context.beginPath();
+      context.moveTo(x * cellSize, 0);
+      context.lineTo(x * cellSize, height * cellSize);
+      context.stroke();
+    }
+
+    for (let y = 0; y <= height; y++) {
+      context.beginPath();
+      context.moveTo(0, y * cellSize);
+      context.lineTo(width * cellSize, y * cellSize);
+      context.stroke();
+    }
+    context.fillStrokeShape(shape);
   }
 
-  for (let x = 0; x <= width; x++) {
-    context.beginPath();
-    context.moveTo(x * cellSize, 0);
-    context.lineTo(x * cellSize, height * cellSize);
-    context.stroke();
-  }
+  const undo = () => {
+    internalState.undo();
+  };
 
-  for (let y = 0; y <= height; y++) {
-    context.beginPath();
-    context.moveTo(0, y * cellSize);
-    context.lineTo(width * cellSize, y * cellSize);
-    context.stroke();
-  }
-};
+  const redo = () => {
+    internalState.redo();
+  };
 
-const setupCanvas = (state) => {
-  const image  = state.internal.image();
-  const canvas = getCanvas();
-  canvas.addEventListener("click", (event) => {
+  const canvasClick = (event) => {
     console.log(event);
-    const canvas = event.target;
-    const rect = canvas.getBoundingClientRect();
-    let x = event.clientX - rect.left;
-    let y = event.clientY - rect.top;
+    let {x, y}= event.target.getStage().getPointerPosition();
+    x = event.clientX - x;
+    y = event.clientY - y;
 
     x = Math.floor(x / cellSize);
     y = Math.floor(y / cellSize);
 
     console.log("(x, y) = ", x, y);
 
-    console.log(state);
-    state.internal.brush(x, y, state.currentColor);
-    draw(state);
-  });
+    internalState.brush(x, y, currentColor);
+    setInternalState(internalState.copy())
+    // draw(state);
+  };
 
-  canvas.addEventListener("mousedown", (event) => {
-    state.dragging = true;
-  });
-  canvas.addEventListener("mouseup", (event) => {
-    state.dragging = false;
-  });
-  canvas.addEventListener("mousemove", (event) => {
-    if (!state.dragging) {
+  const canvasMousedown = (event) => {
+    setDragging(true);
+  };
+  const canvasMouseup =(event) => {
+    setDragging(false);
+  };
+  const canvasMousemove = (event) => {
+    if (!dragging) {
       return;
     }
 
-    const rect = canvas.getBoundingClientRect();
+    const rect = event.target.getStage().content.getBoundingClientRect();
+    console.log(rect);
     let x = event.clientX - rect.left;
     let y = event.clientY - rect.top;
     x = Math.floor(x / cellSize);
     y = Math.floor(y / cellSize);
 
-    state.internal.brush(x, y, state.currentColor);
-    draw(state);
-  });
-
-  document.getElementById("red").addEventListener("click", (event) => {
-    state.currentColor = colorRed;
-    console.log(state);
-  });
-  document.getElementById("green").addEventListener("click", (event) => {
-    state.currentColor = colorGreen;
-    console.log(state);
-  });
-  document.getElementById("blue").addEventListener("click", (event) => {
-    state.currentColor = colorBlue;
-    console.log(state);
-  });
-};
-
-async function main() {
-  const lib = await import("../pkg/index.js");
-  console.log(lib);
-  const internalState = lib.InternalState.new(10, 10);
-  const state = {
-    internal: internalState,
-    currentColor: [200, 255, 200],
+    internalState.brush(x, y, currentColor);
+    setInternalState(internalState.copy())
+    // draw(state);
   };
-  draw(state);
-  setupCanvas(state);
+
+  return <div>
+    <Stage width={500} height={500} onClick={canvasClick}>
+        <Layer>
+          <Shape
+            sceneFunc={sceneFunc}
+            fill="#00D2FF"
+            stroke="black"
+            strokeWidth={4}
+            onMouseDown={canvasMousedown}
+            onMouseUp={canvasMouseup}
+            onMouseMove={canvasMousemove}
+          />
+        </Layer>
+      </Stage>
+    <div>
+      <Button variant="danger" onClick={() => setCurrentColor(colorRed)}>Red</Button>
+      <Button variant="success" onClick={() => setCurrentColor(colorGreen)}>Green</Button>
+      <Button variant="primary" onClick={() => setCurrentColor(colorBlue)}>Blue</Button>
+
+      <Button variant="secondary" onClick={undo}>Undo</Button>
+      <Button variant="info" onClick={redo}>Redo</Button>
+    </div>
+  </div>
 }
 
-main().catch(console.error);
+render(<App />, document.querySelector("#root"))
