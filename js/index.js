@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { render } from "react-dom";
-import { Stage, Layer, Shape } from 'react-konva';
-import Button from 'react-bootstrap/Button';
-import 'bootstrap/dist/css/bootstrap.min.css';
+import { Stage, Layer, Rect } from "react-konva";
+import Button from "react-bootstrap/Button";
+import "bootstrap/dist/css/bootstrap.min.css";
 
 import { InternalState } from "../pkg/index.js";
 
@@ -13,10 +13,12 @@ const [colorRed, colorGreen, colorBlue] = [
   [0, 0, 255],
 ];
 
+const state = { dragging: false };
+
 function App() {
   const [internalState, setInternalState] = useState(InternalState.new(10, 10));
   const [currentColor, setCurrentColor] = useState(colorGreen);
-  const [dragging, setDragging] = useState(false);
+  const shapeRef = useRef();
 
   const sceneFunc = (context, shape) => {
     const image = internalState.image();
@@ -51,21 +53,26 @@ function App() {
       context.stroke();
     }
     context.fillStrokeShape(shape);
-  }
+  };
 
   const undo = () => {
     internalState.undo();
+    setInternalState(internalState.copy());
   };
 
   const redo = () => {
     internalState.redo();
+    setInternalState(internalState.copy());
   };
 
-  const canvasClick = (event) => {
-    console.log(event);
-    let {x, y}= event.target.getStage().getPointerPosition();
-    x = event.clientX - x;
-    y = event.clientY - y;
+  const canvasClick = (reactEvent) => {
+    const event = reactEvent.evt;
+    const rect = shapeRef.current.getClientRect({
+      skipTransform: true,
+      skipStroke: true,
+    });
+    let x = event.clientX - rect.x;
+    let y = event.clientY - rect.y;
 
     x = Math.floor(x / cellSize);
     y = Math.floor(y / cellSize);
@@ -73,37 +80,43 @@ function App() {
     console.log("(x, y) = ", x, y);
 
     internalState.brush(x, y, currentColor);
-    setInternalState(internalState.copy())
-    // draw(state);
+    setInternalState(internalState.copy());
   };
 
-  const canvasMousedown = (event) => {
-    setDragging(true);
+  const canvasMousedown = (_) => {
+    state.dragging = true;
+    console.log("Mouse Down", state.dragging);
   };
-  const canvasMouseup =(event) => {
-    setDragging(false);
+  const canvasMouseup = (_) => {
+    state.dragging = false;
+    console.log("Mouse up", state.dragging);
   };
-  const canvasMousemove = (event) => {
-    if (!dragging) {
+  const canvasMousemove = (reactEvent) => {
+    if (!state.dragging) {
       return;
     }
 
-    const rect = event.target.getStage().content.getBoundingClientRect();
-    console.log(rect);
-    let x = event.clientX - rect.left;
-    let y = event.clientY - rect.top;
+    const event = reactEvent.evt;
+    const rect = shapeRef.current.getClientRect({
+      skipTransform: true,
+      skipStroke: true,
+    });
+    let x = event.clientX - rect.x;
+    let y = event.clientY - rect.y;
+
     x = Math.floor(x / cellSize);
     y = Math.floor(y / cellSize);
 
     internalState.brush(x, y, currentColor);
-    setInternalState(internalState.copy())
-    // draw(state);
+    setInternalState(internalState.copy());
   };
 
-  return <div>
-    <Stage width={500} height={500} onClick={canvasClick}>
+  return (
+    <div>
+      <Stage width={500} height={500} onClick={canvasClick}>
         <Layer>
-          <Shape
+          <Rect
+            ref={shapeRef}
             sceneFunc={sceneFunc}
             fill="#00D2FF"
             stroke="black"
@@ -114,15 +127,26 @@ function App() {
           />
         </Layer>
       </Stage>
-    <div>
-      <Button variant="danger" onClick={() => setCurrentColor(colorRed)}>Red</Button>
-      <Button variant="success" onClick={() => setCurrentColor(colorGreen)}>Green</Button>
-      <Button variant="primary" onClick={() => setCurrentColor(colorBlue)}>Blue</Button>
+      <div>
+        <Button variant="danger" onClick={() => setCurrentColor(colorRed)}>
+          Red
+        </Button>
+        <Button variant="success" onClick={() => setCurrentColor(colorGreen)}>
+          Green
+        </Button>
+        <Button variant="primary" onClick={() => setCurrentColor(colorBlue)}>
+          Blue
+        </Button>
 
-      <Button variant="secondary" onClick={undo}>Undo</Button>
-      <Button variant="info" onClick={redo}>Redo</Button>
+        <Button variant="secondary" onClick={undo}>
+          Undo
+        </Button>
+        <Button variant="info" onClick={redo}>
+          Redo
+        </Button>
+      </div>
     </div>
-  </div>
+  );
 }
 
-render(<App />, document.querySelector("#root"))
+render(<App />, document.querySelector("#root"));
