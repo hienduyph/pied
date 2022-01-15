@@ -1,14 +1,16 @@
-const path = require("path");
-const CopyPlugin = require("copy-webpack-plugin");
-const WasmPackPlugin = require("@wasm-tool/wasm-pack-plugin");
-const HtmlWebpackPlugin = require("html-webpack-plugin");
+import path from "path";
+import CopyPlugin from "copy-webpack-plugin";
+import WasmPackPlugin from "@wasm-tool/wasm-pack-plugin";
+import HtmlWebpackPlugin from "html-webpack-plugin";
+import { Configuration } from "webpack";
+import "webpack-dev-server";
 
 const dist = path.resolve(__dirname, "dist");
 
-module.exports = {
+const c: Configuration = {
   mode: "development",
   entry: {
-    index: "./js/index.js",
+    index: "./js/index.tsx",
   },
   output: {
     path: dist,
@@ -22,7 +24,7 @@ module.exports = {
   module: {
     rules: [
       {
-        test: /\.js$/,
+        test: /\.(js|ts)[x]$/,
         loader: "esbuild-loader",
         options: {
           loader: "jsx", // Remove this if you're not using JSX
@@ -64,3 +66,5 @@ module.exports = {
     asyncWebAssembly: true,
   },
 };
+
+export default c;

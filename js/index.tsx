@@ -4,7 +4,7 @@ import { Stage, Layer, Rect } from "react-konva";
 import Button from "react-bootstrap/Button";
 import "bootstrap/dist/css/bootstrap.min.css";
 
-import { InternalState } from "../pkg/index.js";
+import { InternalState } from "../pkg";
 
 const cellSize = 50;
 const [colorRed, colorGreen, colorBlue] = [
